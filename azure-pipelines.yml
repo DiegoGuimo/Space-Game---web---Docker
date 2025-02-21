@@ -31,7 +31,7 @@ stages:
         containerRegistry: 'Container Registry Connection'
         tags: |
           $(tag)
-          
+
 - stage: 'Deploy'
   displayName: 'Deploy the container'
   dependsOn: Build
@@ -39,7 +39,9 @@ stages:
   - job: 'Deploy'
     displayName: 'Deploy job'
     pool:
-      vmImage: 'ubuntu-20.04'
+      name: RetoAzure
+      demands:
+      - agent.name -equals MyAgent
     variables:
     - group: Release
     steps:
