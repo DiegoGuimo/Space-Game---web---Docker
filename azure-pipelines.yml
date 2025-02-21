@@ -7,7 +7,7 @@ variables:
   tag: '$(Build.BuildId)'
   wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
   dotnetSdkVersion: '8.x'
-  containerRegistry: 'Resource Manager - Tailspin - Space Game'  # Nombre de la conexión de ACR en Azure DevOps
+  containerRegistry: 'tailspinspacegame26514.azurecr.io'  # Nombre correcto del ACR
   azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Conexión a Azure RM
 
 stages:
@@ -26,9 +26,9 @@ stages:
       displayName: 'Build and push the image to ACR'
       inputs:
         command: buildAndPush
-        repository: $(RegistryName)/$(webRepository)  # Usamos la variable de Library
+        repository: $(containerRegistry)/$(webRepository)  # Se usa la URL del ACR
         dockerfile: '$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile'
-        containerRegistry: $(containerRegistry)
+        containerRegistry: 'Resource Manager - Tailspin - Space Game'  # Nombre exacto en DevOps
         tags: |
           $(tag)
 
@@ -48,6 +48,6 @@ stages:
     - task: AzureWebAppContainer@1
       displayName: 'Deploy to Azure App Service'
       inputs:
-        azureSubscription: $(azureSubscription)
-        appName: $(WebAppName)  # Usamos la variable de Library
-        containers: '$(RegistryName)/$(webRepository):$(Build.BuildId)'
+        azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Nombre correcto de la conexión
+        appName: '$(WebAppName)'  # Variable desde la Library
+        containers: '$(containerRegistry)/$(webRepository):$(Build.BuildId)'
