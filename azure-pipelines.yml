@@ -7,7 +7,7 @@ variables:
   tag: '$(Build.BuildId)'
   wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
   dotnetSdkVersion: '8.x'
-  containerRegistry: 'ContainerRegistryConnection'  # Nombre de la conexión de ACR en Azure DevOps
+  containerRegistry: 'Resource Manager - Tailspin - Space Game'  # Nombre de la conexión de ACR en Azure DevOps
   azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Conexión a Azure RM
 
 stages:
