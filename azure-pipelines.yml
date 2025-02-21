@@ -1,11 +1,10 @@
 trigger:
-- '*'
+  - '*'
 
 variables:
   buildConfiguration: 'Release'
   webRepository: 'tailspin-web'
   tag: '$(Build.BuildId)'
-  wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
   dotnetSdkVersion: '8.x'
   containerRegistry: 'tailspinspacegame26514.azurecr.io'
   azureSubscription: 'Resource Manager - Tailspin - Space Game'
@@ -22,22 +21,22 @@ stages:
       - agent.name -equals MyAgent
 
     steps:
-    # ✅ Cambio a `scriptType: batch` para evitar error de `pwsh`
+    # ✅ Inicio de sesión en Azure Container Registry
     - task: AzureCLI@2
       displayName: 'Login to Azure Container Registry'
       inputs:
         azureSubscription: $(azureSubscription)
-        scriptType: batch
+        scriptType: batch  # Usamos `batch` en lugar de `pwsh`
         scriptLocation: inlineScript
         inlineScript: |
           az acr login --name $(containerRegistry)
 
-    # 🔹 Construcción y push de la imagen Docker usando `cmd.exe`
+    # ✅ Construcción y push de la imagen Docker
     - task: CmdLine@2
       displayName: 'Build and push the Docker image'
       inputs:
         script: |
-          docker build -t $(containerRegistry)/$(webRepository):$(tag) -f $(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile .
+          docker build -t $(containerRegistry)/$(webRepository):$(tag) -f $(Build.SourcesDirectory)/Dockerfile .
           docker push $(containerRegistry)/$(webRepository):$(tag)
 
 - stage: 'Deploy'
@@ -51,7 +50,7 @@ stages:
       demands:
       - agent.name -equals MyAgent
     variables:
-    - group: Release
+    - group: Release  # Importamos variables de la Library "Release"
     steps:
     - task: AzureWebAppContainer@1
       displayName: 'Deploy to Azure App Service'
