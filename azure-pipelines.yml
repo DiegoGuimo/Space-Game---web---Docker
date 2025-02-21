@@ -3,51 +3,57 @@ trigger:
 
 variables:
   buildConfiguration: 'Release'
-  webRepository: 'tailspin-web'  # Nombre de la imagen en ACR
+  webRepository: 'tailspin-web'
   tag: '$(Build.BuildId)'
-  wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
-  dotnetSdkVersion: '8.x'
-  containerRegistry: 'tailspinspacegame26514.azurecr.io'  # Nombre correcto del ACR
-  azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Conexión a Azure RM
+  containerRegistry: 'tailspinspacegame26514.azurecr.io'
+  azureSubscription: 'Resource Manager - Tailspin - Space Game'
 
 stages:
 - stage: 'Build'
-  displayName: 'Build the web application'
+  displayName: 'Construcción de la aplicación web'
   jobs: 
   - job: 'Build'
-    displayName: 'Build job'
+    displayName: 'Tarea de construcción'
     pool:
       name: RetoAzure
       demands:
       - agent.name -equals MyAgent
 
     steps:
+    - task: AzureCLI@2
+      displayName: 'Autenticarse en ACR'
+      inputs:
+        azureSubscription: $(azureSubscription)
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          TOKEN=$(az acr login --name tailspinspacegame26514 --expose-token --query accessToken -o tsv)
+          echo $TOKEN | docker login $(containerRegistry) -u 00000000-0000-0000-0000-000000000000 --password-stdin
+
     - task: Docker@2
-      displayName: 'Build and push the image to ACR'
+      displayName: 'Construir y enviar la imagen a ACR'
       inputs:
         command: buildAndPush
-        repository: $(containerRegistry)/$(webRepository)  # Se usa la URL del ACR
+        repository: $(containerRegistry)/$(webRepository)
         dockerfile: '$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile'
-        containerRegistry: 'Resource Manager - Tailspin - Space Game'  # Nombre exacto en DevOps
         tags: |
           $(tag)
 
 - stage: 'Deploy'
-  displayName: 'Deploy the container'
+  displayName: 'Desplegar el contenedor'
   dependsOn: Build
   jobs:
   - job: 'Deploy'
-    displayName: 'Deploy job'
+    displayName: 'Tarea de despliegue'
     pool:
       name: RetoAzure
       demands:
       - agent.name -equals MyAgent
-    variables:
-    - group: Release  # 🔹 Importa la Library "Release"
+
     steps:
     - task: AzureWebAppContainer@1
-      displayName: 'Deploy to Azure App Service'
+      displayName: 'Desplegar en Azure App Service'
       inputs:
-        azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Nombre correcto de la conexión
-        appName: '$(WebAppName)'  # Variable desde la Library
-        containers: '$(containerRegistry)/$(webRepository):$(Build.BuildId)'
+        azureSubscription: $(azureSubscription)
+        appName: '$(WebAppName)'
+        containers: '$(containerRegistry)/$(webRepository):$(tag)'
