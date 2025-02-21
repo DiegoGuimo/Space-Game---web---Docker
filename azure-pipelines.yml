@@ -3,10 +3,12 @@ trigger:
 
 variables:
   buildConfiguration: 'Release'
-  webRepository: 'web'
+  webRepository: 'tailspin-web'  # Nombre de la imagen en ACR
   tag: '$(Build.BuildId)'
   wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
   dotnetSdkVersion: '8.x'
+  containerRegistry: 'ContainerRegistryConnection'  # Nombre de la conexión de ACR en Azure DevOps
+  azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Conexión a Azure RM
 
 stages:
 - stage: 'Build'
@@ -18,17 +20,15 @@ stages:
       name: RetoAzure
       demands:
       - agent.name -equals MyAgent
-      
 
     steps:
     - task: Docker@2
-      displayName: 'Build and push the image to container registry'
+      displayName: 'Build and push the image to ACR'
       inputs:
         command: buildAndPush
-        buildContext: $(Build.Repository.LocalPath)
-        repository: $(webRepository)
+        repository: $(RegistryName)/$(webRepository)  # Usamos la variable de Library
         dockerfile: '$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile'
-        containerRegistry: 'Container Registry Connection'
+        containerRegistry: $(containerRegistry)
         tags: |
           $(tag)
 
@@ -43,10 +43,11 @@ stages:
       demands:
       - agent.name -equals MyAgent
     variables:
-    - group: Release
+    - group: Release  # 🔹 Importa la Library "Release"
     steps:
     - task: AzureWebAppContainer@1
+      displayName: 'Deploy to Azure App Service'
       inputs:
-       appName: $(WebAppName)
-       azureSubscription: 'Resource Manager - Tailspin - Space Game'
-       imageName: $(RegistryName)/$(webRepository):$(build.buildId)
+        azureSubscription: $(azureSubscription)
+        appName: $(WebAppName)  # Usamos la variable de Library
+        containers: '$(RegistryName)/$(webRepository):$(Build.BuildId)'
