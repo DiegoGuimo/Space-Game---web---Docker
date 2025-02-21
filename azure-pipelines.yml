@@ -20,22 +20,13 @@ stages:
       - agent.name -equals MyAgent
 
     steps:
-    - task: AzureCLI@2
-      displayName: 'Autenticarse en ACR'
-      inputs:
-        azureSubscription: $(azureSubscription)
-        scriptType: bash
-        scriptLocation: inlineScript
-        inlineScript: |
-          TOKEN=$(az acr login --name tailspinspacegame26514 --expose-token --query accessToken -o tsv)
-          echo $TOKEN | docker login $(containerRegistry) -u 00000000-0000-0000-0000-000000000000 --password-stdin
-
     - task: Docker@2
       displayName: 'Construir y enviar la imagen a ACR'
       inputs:
         command: buildAndPush
-        repository: $(containerRegistry)/$(webRepository)
+        repository: $(webRepository)
         dockerfile: '$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile'
+        containerRegistry: 'tailspinspacegame26514.azurecr.io'
         tags: |
           $(tag)
 
