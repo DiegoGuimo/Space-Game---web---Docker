@@ -3,39 +3,85 @@ trigger:
 
 variables:
   buildConfiguration: 'Release'
-  webRepository: 'tailspin-web'
+  webRepository: 'tailspin-web'  # Nombre de la imagen en ACR
   tag: '$(Build.BuildId)'
-  acrName: 'tailspinspacegame26514'  # 🔹 Nombre del ACR sin el dominio .azurecr.io
+  wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
+  dotnetSdkVersion: '8.x'
+  containerRegistry: 'tailspinspacegame26514.azurecr.io'  # Nombre del ACR
+  azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Conexión Azure RM
+  acrName: 'tailspinspacegame26514'
   loginServer: 'tailspinspacegame26514.azurecr.io'
-  azureSubscription: 'Resource Manager - Tailspin - Space Game'
 
 stages:
 - stage: 'Build'
-  displayName: 'Construcción de la aplicación web'
+  displayName: 'Build the web application'
   jobs: 
   - job: 'Build'
-    displayName: 'Tarea de construcción'
+    displayName: 'Build job'
     pool:
       name: RetoAzure
       demands:
       - agent.name -equals MyAgent
 
     steps:
+    - task: UseDotNet@2
+      displayName: 'Instalar .NET SDK $(dotnetSdkVersion)'
+      inputs:
+        packageType: 'sdk'
+        version: '$(dotnetSdkVersion)'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Restaurar dependencias'
+      inputs:
+        command: 'restore'
+        projects: '**/*.csproj'
+
+    - task: DotNetCoreCLI@2
+      displayName: 'Compilar aplicación'
+      inputs:
+        command: 'build'
+        projects: '**/*.csproj'
+        arguments: '--configuration $(buildConfiguration)'
+
     - task: AzureCLI@2
       displayName: 'Autenticar en Azure Container Registry'
       inputs:
         azureSubscription: $(azureSubscription)
-        scriptType: 'bash'
+        scriptType: 'pscore'  # 🟢 PowerShell Core en lugar de Bash
         scriptLocation: 'inlineScript'
         inlineScript: |
-          echo "Autenticando en ACR..."
-          TOKEN=$(az acr login --name $(acrName) --expose-token --query accessToken --output tsv)
-          echo "Iniciando sesión en Docker..."
-          echo $TOKEN | docker login $(loginServer) -u "00000000-0000-0000-0000-000000000000" --password-stdin
+          Write-Host "Autenticando en ACR..."
+          $TOKEN = az acr login --name $(acrName) --expose-token --query accessToken --output tsv
+          Write-Host "Iniciando sesión en Docker..."
+          $TOKEN | docker login $(loginServer) -u "00000000-0000-0000-0000-000000000000" --password-stdin
 
-    - script: |
-        echo "Construyendo la imagen..."
-        docker build -t $(loginServer)/$(webRepository):$(tag) -f $(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile $(Build.SourcesDirectory)
-        echo "Enviando la imagen a ACR..."
-        docker push $(loginServer)/$(webRepository):$(tag)
-      displayName: 'Construir y enviar la imagen a ACR'
+    - task: Docker@2
+      displayName: 'Build y Push de la imagen a ACR'
+      inputs:
+        command: 'buildAndPush'
+        repository: $(webRepository)
+        dockerfile: '$(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile'
+        containerRegistry: '$(containerRegistry)'
+        tags: |
+          $(tag)
+
+- stage: 'Deploy'
+  displayName: 'Deploy the container'
+  dependsOn: Build
+  jobs:
+  - job: 'Deploy'
+    displayName: 'Deploy job'
+    pool:
+      name: RetoAzure
+      demands:
+      - agent.name -equals MyAgent
+    variables:
+    - group: Release  # 🔹 Importa la Library "Release"
+
+    steps:
+    - task: AzureWebAppContainer@1
+      displayName: 'Deploy to Azure App Service'
+      inputs:
+        azureSubscription: $(azureSubscription)
+        appName: $(WebAppName)  # Usamos la variable de Library
+        containers: '$(containerRegistry)/$(webRepository):$(tag)'
