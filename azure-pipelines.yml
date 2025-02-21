@@ -3,12 +3,12 @@ trigger:
 
 variables:
   buildConfiguration: 'Release'
-  webRepository: 'tailspin-web'  # Nombre de la imagen en ACR
+  webRepository: 'tailspin-web'
   tag: '$(Build.BuildId)'
   wwwrootDir: 'Tailspin.SpaceGame.Web/wwwroot'
   dotnetSdkVersion: '8.x'
-  containerRegistry: 'tailspinspacegame26514.azurecr.io'  # URL de tu ACR
-  azureSubscription: 'Resource Manager - Tailspin - Space Game'  # Conexión Azure RM
+  containerRegistry: 'tailspinspacegame26514.azurecr.io'
+  azureSubscription: 'Resource Manager - Tailspin - Space Game'
 
 stages:
 - stage: 'Build'
@@ -22,22 +22,22 @@ stages:
       - agent.name -equals MyAgent
 
     steps:
+    # ✅ Cambio a `scriptType: batch` para evitar error de `pwsh`
     - task: AzureCLI@2
       displayName: 'Login to Azure Container Registry'
       inputs:
         azureSubscription: $(azureSubscription)
-        scriptType: pscore
+        scriptType: batch
         scriptLocation: inlineScript
         inlineScript: |
           az acr login --name $(containerRegistry)
 
-    - task: PowerShell@2
+    # 🔹 Construcción y push de la imagen Docker con `cmd.exe`
+    - script: |
+        docker build -t $(containerRegistry)/$(webRepository):$(tag) -f $(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile .
+        docker push $(containerRegistry)/$(webRepository):$(tag)
       displayName: 'Build and push the Docker image'
-      inputs:
-        targetType: inline
-        script: |
-          docker build -t $(containerRegistry)/$(webRepository):$(tag) -f $(Build.SourcesDirectory)/Tailspin.SpaceGame.Web/Dockerfile .
-          docker push $(containerRegistry)/$(webRepository):$(tag)
+      shell: cmd
 
 - stage: 'Deploy'
   displayName: 'Deploy the container'
@@ -50,11 +50,11 @@ stages:
       demands:
       - agent.name -equals MyAgent
     variables:
-    - group: Release  # Importa la Library "Release"
+    - group: Release
     steps:
     - task: AzureWebAppContainer@1
       displayName: 'Deploy to Azure App Service'
       inputs:
         azureSubscription: $(azureSubscription)
-        appName: $(WebAppName)  # Usamos la variable de Library
+        appName: $(WebAppName)
         containers: '$(containerRegistry)/$(webRepository):$(tag)'
